@@ -2,7 +2,10 @@
 title: "Practical Machine Learning - Course Project"
 author: "Stanislav O. Pogrebnyak"
 date: "25 Jul 2015"
-output: html_document
+output:
+  html_document:
+    toc: true
+    theme: united
 ---
 
 Background
@@ -69,6 +72,8 @@ train.df.clean = train.df[,-nzv.cols]
 train.df.clean %>% head(5) %>% kable
 ```
 
+Also we need to remove all the columns with NAs values:
+
 ```{r}
 NAs = apply(train.df.clean, 2, function(x) { sum(is.na(x)) })
 cols.with.data = names(NAs[NAs == 0])
@@ -83,12 +88,14 @@ train.df.clean = cbind(train.df.clean[,c(predictors, "classe")])
 #               tl.pos="lt", diag="n", order="hclust", hclust.method="complete")
 ```
 
+After that we can train the model. Splitting the training set in to 60/40:
 ```{r}
 inTrain  = createDataPartition(train.df.clean$classe, p = 0.6, list = FALSE)
 train.final = train.df.clean[inTrain,]
 test.final = train.df.clean[-inTrain,]
 ```
 
+Creating model fit using caret package:
 ```{r}
 trc = trainControl(method = "cv", number = 4, allowParallel=T)
 random.Forest.fit = train(classe ~ .,
@@ -108,6 +115,8 @@ test.df.clean = test.df[, names(train.final)[-53]]
 project.answers = predict(random.Forest.fit, test.df.clean)
 project.answers
 ```
+
+Final output for submition:
 
 ```{r}
 pml_write_files = function(x){

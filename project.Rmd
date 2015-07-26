@@ -5,7 +5,8 @@ date: "25 Jul 2015"
 output:
   html_document:
     toc: true
-    theme: united
+    theme: spacelab
+    highlight: textmate
 ---
 
 Background
@@ -77,16 +78,27 @@ Also we need to remove all the columns with NAs values:
 ```{r}
 NAs = apply(train.df.clean, 2, function(x) { sum(is.na(x)) })
 cols.with.data = names(NAs[NAs == 0])
-predictors = grep("(_belt|_arm|_dumbbell|_forearm)", cols.with.data, value=T)
+predictors = grep("(belt|arm|dumbbell)", cols.with.data, value=T)
 train.df.clean = cbind(train.df.clean[,c(predictors, "classe")])
 ```
 
+Features(predictors) relationships with classes using featurePlot from caret:
+
 ```{r}
-#outcome.org = train.df.clean[, "classe"]
-#featurePlot(train.df.clean, outcome.org)
-#corrplot.mixed(cor(train.df.clean), lower="circle", upper="color", 
-#               tl.pos="lt", diag="n", order="hclust", hclust.method="complete")
+featurePlot(train.df.clean[,1:52], train.df.clean$classe, "strip")
 ```
+
+Correlations matrix between features itself:
+
+```{r}
+corrplot.mixed(cor(train.df.clean[,1:52]), lower="circle", upper="color", 
+               tl.pos="lt", diag="n", order="hclust", hclust.method="complete")
+```
+
+As plot shows some features correlate with others a bit, but not too much. And there is no one value which correlates with all others.
+
+ML Model
+--------
 
 After that we can train the model. Splitting the training set in to 60/40:
 ```{r}
@@ -95,25 +107,28 @@ train.final = train.df.clean[inTrain,]
 test.final = train.df.clean[-inTrain,]
 ```
 
-Creating model fit using caret package:
+Creating model fit using caret package
+--------------------------------------
 ```{r}
 trc = trainControl(method = "cv", number = 4, allowParallel=T)
-random.Forest.fit = train(classe ~ .,
-               data = train.final,
-               method = "rf",
-               trControl = trc)
+random.Forest.fit = train(classe ~ ., data = train.final, method = "rf", trControl = trc)
 ```
 Model validation and confusion matrix
+-------------------------------------
 ```{r}
 random.Forest.prediction = predict(random.Forest.fit, test.final)
 prediction.results = confusionMatrix(random.Forest.prediction, test.final$classe)
 prediction.results
 ```
 
+Prediction of the answers
+-------------------------
+
 ```{r}
 test.df.clean = test.df[, names(train.final)[-53]]
 project.answers = predict(random.Forest.fit, test.df.clean)
-project.answers
+test.df.clean$classe <- project.answers
+test.df.clean$classe %>% head(5) %>% kable
 ```
 
 Final output for submition:

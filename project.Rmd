@@ -1,0 +1,121 @@
+---
+title: "Practical Machine Learning - Course Project"
+author: "Stanislav O. Pogrebnyak"
+date: "25 Jul 2015"
+output: html_document
+---
+
+Background
+==========
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+Data 
+====
+
+The training data for this project are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment. 
+
+Solution
+=======
+
+```{r, echo=FALSE}
+library(caret)
+library(corrplot)
+library(dplyr)
+library(reshape2)
+library(ggplot2)
+library(GGally)
+library(knitr)
+```
+
+Data mining:
+--------------------------
+
+First we will import data from csv files with some data cleanups:
+
+```{r}
+train.df <- read.csv("pml-training.csv", sep = ",", header = TRUE, na.strings = c("", "NA", "#DIV/0!"))
+test.df <- read.csv("pml-testing.csv", sep = ",", header = TRUE, na.strings = c("", "NA", "#DIV/0!"))
+```
+
+Train:
+-----
+
+```{r}
+train.df %>% head(5) %>% kable
+```
+
+Test:
+-----
+
+```{r}
+test.df %>% head(5) %>% kable
+```
+
+Lets remove features with near zero variance:
+
+```{r}
+near.zero.variance  = nearZeroVar(train.df, saveMetrics=TRUE)
+nzv.cols = which(near.zero.variance$nzv==TRUE)
+train.df.clean = train.df[,-nzv.cols]
+train.df.clean %>% head(5) %>% kable
+```
+
+```{r}
+NAs = apply(train.df.clean, 2, function(x) { sum(is.na(x)) })
+cols.with.data = names(NAs[NAs == 0])
+predictors = grep("(_belt|_arm|_dumbbell|_forearm)", cols.with.data, value=T)
+train.df.clean = cbind(train.df.clean[,c(predictors, "classe")])
+```
+
+```{r}
+#outcome.org = train.df.clean[, "classe"]
+#featurePlot(train.df.clean, outcome.org)
+#corrplot.mixed(cor(train.df.clean), lower="circle", upper="color", 
+#               tl.pos="lt", diag="n", order="hclust", hclust.method="complete")
+```
+
+```{r}
+inTrain  = createDataPartition(train.df.clean$classe, p = 0.6, list = FALSE)
+train.final = train.df.clean[inTrain,]
+test.final = train.df.clean[-inTrain,]
+```
+
+```{r}
+trc = trainControl(method = "cv", number = 4, allowParallel=T)
+random.Forest.fit = train(classe ~ .,
+               data = train.final,
+               method = "rf",
+               trControl = trc)
+```
+Model validation and confusion matrix
+```{r}
+random.Forest.prediction = predict(random.Forest.fit, test.final)
+prediction.results = confusionMatrix(random.Forest.prediction, test.final$classe)
+prediction.results
+```
+
+```{r}
+test.df.clean = test.df[, names(train.final)[-53]]
+project.answers = predict(random.Forest.fit, test.df.clean)
+project.answers
+```
+
+```{r}
+pml_write_files = function(x){
+        n = length(x)
+        for(i in 1:n){
+                filename = paste0("problem_id_",i,".txt")
+                write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+        }
+}
+pml_write_files(project.answers)
+```
